@@ -1,35 +1,62 @@
 "use client";
-import { useState } from "react";
-import { TextField, Button, Box } from "@mui/material";
+
 import { useRouter } from "next/navigation";
+import { loginUser } from "./loginAction";
+import { useState } from "react";
+import { Box, Button, TextField, Typography, Container } from "@mui/material";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const router = useRouter();
 
-  const handleSubmit = async () => {
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
 
-    const data = await res.json();
-
-    if (res.ok) {
-      localStorage.setItem("token", data.token);
-      router.push("/dashboard");
-    } else {
-      alert(data.error);
+    const result = await loginUser(email, password);
+    if ("error" in result) {
+      alert(result.error);
+      return;
     }
+
+    localStorage.setItem("token", result.token);
+    router.push("/dashboard");
   };
 
   return (
-    <Box display="flex" flexDirection="column" gap={2} width={300} mx="auto" mt={10}>
-      <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-      <TextField label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-      <Button variant="contained" onClick={handleSubmit}>Login</Button>
-    </Box>
+    <Container maxWidth="sm">
+      <Box
+        display="flex"
+        flexDirection="column"
+        alignItems="center"
+        justifyContent="center"
+        minHeight="100vh"
+        sx={{ gap: 2 }}
+      >
+        <Typography variant="h4" component="h1" gutterBottom>
+          Login
+        </Typography>
+
+        <Box component="form" onSubmit={handleSubmit} sx={{ width: "100%", display: "flex", flexDirection: "column", gap: 2 }}>
+          <TextField
+            label="Email"
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <TextField
+            label="Password"
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <Button type="submit" variant="contained" color="primary">
+            Login
+          </Button>
+        </Box>
+      </Box>
+    </Container>
   );
 }

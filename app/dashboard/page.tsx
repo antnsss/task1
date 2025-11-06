@@ -1,117 +1,163 @@
 "use client";
-import React, { useEffect, useState } from "react";
-import TaskItem from "../components/TaskItem";
-import AddUserForm from "../components/AddUserForm";
-import ListForm from "../components/ListForm";
-import TaskForm from "../components/TaskForm";
 
-type Task = {
-  id: number;
-  title: string;
-  completed: boolean;
-  description?: string;
-};
-type UserInList = { id: number; name: string; email: string };
-type ListUserWithRole = {
-  id: number;
-  role: "ADMIN" | "VIEWER";
-  user: UserInList;
-};
-type List = {
-  id: number;
-  title: string;
-  tasks: Task[];
-  users: ListUserWithRole[];
-};
+import { useEffect, useState } from "react";
+import { getLists, createList, deleteList } from "./listsAction";
+import { addUserToList } from "./usersAction";
+import {
+  Box,
+  Button,
+  Container,
+  TextField,
+  Typography,
+  List,
+  ListItem,
+  ListItemText,
+  IconButton,
+  Divider,
+  Select,
+  MenuItem,
+  InputLabel,
+  FormControl,
+  Paper,
+} from "@mui/material"
 
-export default function Dashboard() {
-  const [lists, setLists] = useState<List[]>([]);
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+export default function DashboardPage() {
+  const [lists, setLists] = useState<any[]>([]);
+  const [newListTitle, setNewListTitle] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [selectedListId, setSelectedListId] = useState<number | null>(null);
 
-  const fetchLists = async () => {
-    if (!token) return;
-    const res = await fetch("/api/lists", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await res.json();
-    setLists(data);
-
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    setCurrentUserId(payload.id);
-  };
+  const userId = 1;
 
   useEffect(() => {
-    if (token) fetchLists();
-  }, [token]);
+    fetchLists();
+  }, []);
 
-  if (!token) return <p>Please log in</p>;
+  async function fetchLists() {
+    const result = await getLists();
+    setLists(result);
+  }
+
+  async function handleCreateList(e: React.FormEvent) {
+    e.preventDefault();
+    const list = await createList(newListTitle, userId);
+    setLists((prev) => [...prev, list]);
+    setNewListTitle("");
+  }
+
+  async function handleDeleteList(id: number) {
+    await deleteList(id);
+    setLists((prev) => prev.filter((l) => l.id !== id));
+  }
+
+  async function handleAddUser(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedListId) return;
+    await addUserToList(selectedListId, newUserEmail, "VIEWER");
+    setNewUserEmail("");
+    fetchLists();
+  }
 
   return (
-    <main style={{ padding: "2rem" }}>
-      <h1>My To-Do Lists</h1>
+    <Container maxWidth="md">
+      <Box sx={{ mt: 6 }}>
+        <Typography variant="h4" gutterBottom>
+          Dashboard
+        </Typography>
 
-      {token && <ListForm token={token} onCreated={fetchLists} />}
-
-      {lists.map((list) => {
-        const isAdmin =
-          list.users.find((u) => u.user.id === currentUserId)?.role === "ADMIN";
-
-        return (
-          <div
-            key={list.id}
-            style={{
-              border: "1px solid #ccc",
-              padding: "1rem",
-              marginBottom: "1rem",
-            }}
+  
+        <Paper sx={{ p: 3, mb: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            Create New List
+          </Typography>
+          <Box
+            component="form"
+            onSubmit={handleCreateList}
+            sx={{ display: "flex", gap: 2 }}
           >
-            <h2>{list.title}</h2>
+            <TextField
+              fullWidth
+              label="New list title"
+              value={newListTitle}
+              onChange={(e) => setNewListTitle(e.target.value)}
+              required
+            />
+            <Button type="submit" variant="contained">
+              Add
+            </Button>
+          </Box>
+        </Paper>
 
-            {isAdmin && (
-              <ListForm token={token} list={list} onCreated={fetchLists} />
+  
+        <Paper sx={{ p: 3, mb: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            Your Lists
+          </Typography>
+          <List>
+            {lists.length === 0 && (
+              <Typography color="text.secondary">No lists yet.</Typography>
             )}
+            {lists.map((list) => (
+              <ListItem
+                key={list.id}
+                secondaryAction={
+                  <IconButton
+                    edge="end"
+                    color="error"
+                    onClick={() => handleDeleteList(list.id)}
+                  >
+              
+                  </IconButton>
+                }
+              >
+                <ListItemText primary={list.title} />
+              </ListItem>
+            ))}
+          </List>
+        </Paper>
 
-            <h3>Tasks:</h3>
-            <ul>
-              {list.tasks.map((task) => (
-                <TaskItem
-                  key={task.id}
-                  taskId={task.id}
-                  title={task.title}
-                  completed={task.completed}
-                  description={task.description}
-                  listId={list.id}
-                  token={token}
-                  onUpdated={fetchLists}
-                />
-              ))}
-            </ul>
+        <Divider sx={{ my: 4 }} />
 
-            {isAdmin && (
-              <TaskForm listId={list.id} token={token} onAdded={fetchLists} />
-            )}
+       
+        <Paper sx={{ p: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Add User to List
+          </Typography>
+          <Box
+            component="form"
+            onSubmit={handleAddUser}
+            sx={{ display: "flex", gap: 2, flexDirection: "column" }}
+          >
+            <FormControl fullWidth>
+              <InputLabel>Select List</InputLabel>
+              <Select
+                value={selectedListId ?? ""}
+                label="Select List"
+                onChange={(e) => setSelectedListId(Number(e.target.value))}
+                required
+              >
+                {lists.map((l) => (
+                  <MenuItem key={l.id} value={l.id}>
+                    {l.title}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
-            <h3>Users:</h3>
-            <ul>
-              {list.users.map((u) => (
-                <li key={u.id}>
-                  {u.user.name} ({u.role})
-                </li>
-              ))}
-            </ul>
+            <TextField
+              label="User email"
+              fullWidth
+              value={newUserEmail}
+              onChange={(e) => setNewUserEmail(e.target.value)}
+              required
+            />
 
-            {isAdmin && (
-              <AddUserForm
-                listId={list.id}
-                token={token}
-                onUserAdded={fetchLists}
-              />
-            )}
-          </div>
-        );
-      })}
-    </main>
+            <Button type="submit" variant="contained" color="primary">
+              Add User
+            </Button>
+          </Box>
+        </Paper>
+      </Box>
+    </Container>
   );
 }
